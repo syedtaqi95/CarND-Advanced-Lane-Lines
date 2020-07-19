@@ -42,7 +42,7 @@ ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img_siz
 # Test the undistortion on the test image
 dst = cv2.undistort(test_image, mtx, dist, None, mtx)
 
-# Save the calibration matrix for use in the lane detection pipeline
+# Save the camera matrix and distortion coefficients for use in the pipeline
 dist_pickle = {}
 dist_pickle["mtx"] = mtx
 dist_pickle["dist"] = dist
