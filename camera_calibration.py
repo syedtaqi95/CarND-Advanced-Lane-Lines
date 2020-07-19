@@ -1,5 +1,5 @@
 """
-Camera calibration
+Camera calibration using OpenCV and a series of chessboard test images
 """
 
 import numpy as np
@@ -47,6 +47,10 @@ dist_pickle = {}
 dist_pickle["mtx"] = mtx
 dist_pickle["dist"] = dist
 pickle.dump(dist_pickle, open("dist_pickle.p", "wb"))
+
+# Save the dist and undist images to writeup_images folder
+cv2.imwrite("writeup_images/camera_cal_original.jpg", test_image)
+cv2.imwrite("writeup_images/camera_cal_undist.jpg", dst)
 
 # Visualise the result on the test image
 # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
