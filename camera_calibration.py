@@ -20,6 +20,7 @@ imgpoints = [] # 2D points in image plane
 camera_cal_images =  glob.glob('camera_cal/*.jpg')
 chessboard_axes = (9, 6)
 
+# Loop through the images and find imgpoints
 for idx, fname in enumerate(camera_cal_images):
     img = cv2.imread(fname)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -36,7 +37,7 @@ for idx, fname in enumerate(camera_cal_images):
 test_image = cv2.imread('camera_cal/calibration3.jpg')
 img_size = (test_image.shape[1], test_image.shape[0])
 
-# Calibrate the camera using cv2.calibrateCamera
+# Calibrate the camera
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img_size, None, None)
 
 # Test the undistortion on the test image
@@ -48,9 +49,9 @@ dist_pickle["mtx"] = mtx
 dist_pickle["dist"] = dist
 pickle.dump(dist_pickle, open("dist_pickle.p", "wb"))
 
-# Save the dist and undist images to writeup_images folder
-cv2.imwrite("writeup_images/camera_cal_original.jpg", test_image)
-cv2.imwrite("writeup_images/camera_cal_undist.jpg", dst)
+# Save test_image and dst images to writeup_images folder
+# cv2.imwrite("writeup_images/camera_cal_original.jpg", test_image)
+# cv2.imwrite("writeup_images/camera_cal_undist.jpg", dst)
 
 # Visualise the result on the test image
 # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
