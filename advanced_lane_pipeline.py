@@ -16,32 +16,13 @@ import cv2
 import glob
 import pickle
 from moviepy.editor import VideoFileClip
+from line import Line
+
 
 """
-Loading camera calibration data
+Colour transform and gradient estimation
 """
-# Load the camera matrix and dist coefficients from dist_pickle
-# These values were calculated in camera_calibration.py
-pickle_data = pickle.load(open("dist_pickle.p", "rb"))
-mtx = pickle_data["mtx"]
-dist = pickle_data["dist"]
-
-def process_image(image):
-    # Convert to RGB to make life easier
-    img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-    # Get image size
-    img_size = (image.shape[1], image.shape[0])
-
-    """
-    Disortion correction
-    """
-    # Undistort the image using the calculated dist coefficients and camera matrix
-    undist = cv2.undistort(img_rgb, mtx, dist, None, mtx)
-
-    """
-    Colour transform and gradient estimation
-    """
+def create_binary_image(undist, g_thresh=(30,120), s_thresh=(170,255)):
     # Convert to grayscale
     undist_gray = cv2.cvtColor(undist, cv2.COLOR_BGR2GRAY)
 
@@ -55,24 +36,26 @@ def process_image(image):
     scaled_sobel = np.uint8(abs_sobelx*255/np.max(abs_sobelx))
 
     # Gradient threshold
-    g_thresh_min = 30
-    g_thresh_max = 120
     sxbinary = np.zeros_like(scaled_sobel)
-    sxbinary[(scaled_sobel >= g_thresh_min) & (scaled_sobel <= g_thresh_max)] = 1
+    sxbinary[(scaled_sobel >= g_thresh[0]) & (scaled_sobel <= g_thresh[1])] = 1
 
     # Colour threshold
     s_thresh_min = 170
     s_thresh_max = 255
     s_binary = np.zeros_like(s_channel)
-    s_binary[(s_channel >= s_thresh_min) & (s_channel <= s_thresh_max)] = 1
+    s_binary[(s_channel >= s_thresh[0]) & (s_channel <= s_thresh[1])] = 1
 
     # Combine the binary thresholds
     combined_binary = np.zeros_like(sxbinary)
     combined_binary[(sxbinary == 1) | (s_binary == 1)] = 1
 
-    """
-    Perspective transform
-    """
+    return combined_binary
+
+
+"""
+Perspective transform
+"""
+def perspective_transform(combined_binary, img_size):
     # Source and destination points
     src = np.float32([[195,720], [555,475], [730,475], [1125,720]])
     dst = np.float32([[320,720], [320,0], [960,0], [960,720]])
@@ -81,15 +64,19 @@ def process_image(image):
     Minv = cv2.getPerspectiveTransform(dst, src)
     warped = cv2.warpPerspective(combined_binary, M, img_size)
 
-    """
-    Detect lane pixels
-    """
+    return warped, M, Minv
+
+
+"""
+Detect lane pixels
+"""
+def detect_lane_pixels(warped, img_size=(1280,720),):
     # Create a histogram from the warped image
     bottom_half = warped[img_size[1]//2:,:]
     histogram = np.sum(bottom_half, axis = 0)
 
     # Create an output image to draw on and visualize the result
-    out_img = np.dstack((warped, warped, warped))*255
+    # out_img = np.dstack((warped, warped, warped))*255
 
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
@@ -130,10 +117,10 @@ def process_image(image):
         win_xright_high = rightx_current + margin
         
         # Draw the windows on the visualization image
-        cv2.rectangle(out_img,(win_xleft_low,win_y_low),
-        (win_xleft_high,win_y_high),(0,255,0), 2) 
-        cv2.rectangle(out_img,(win_xright_low,win_y_low),
-        (win_xright_high,win_y_high),(0,255,0), 2) 
+        # cv2.rectangle(out_img,(win_xleft_low,win_y_low),
+        # (win_xleft_high,win_y_high),(0,255,0), 2) 
+        # cv2.rectangle(out_img,(win_xright_low,win_y_low),
+        # (win_xright_high,win_y_high),(0,255,0), 2) 
         
         # Identify the nonzero pixels in x and y within the window #
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & 
@@ -151,6 +138,7 @@ def process_image(image):
         if len(good_right_inds) > minpix:        
             rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
 
+    # Convert from a list of lists to a regular list
     left_lane_inds = np.concatenate(left_lane_inds)
     right_lane_inds = np.concatenate(right_lane_inds)
 
@@ -171,12 +159,16 @@ def process_image(image):
 
     # Visualization
     # Colors in the left and right lane regions
-    out_img[lefty, leftx] = [255, 0, 0]
-    out_img[righty, rightx] = [0, 0, 255]
+    # out_img[lefty, leftx] = [255, 0, 0]
+    # out_img[righty, rightx] = [0, 0, 255]
 
-    """
-    Curvature and vehicle position calculation
-    """
+    return ploty, left_fitx, right_fitx, left_fit, right_fit, midpoint
+
+
+"""
+Curvature and vehicle position calculation
+"""
+def find_curvature_and_offset(ploty, left_fitx, right_fitx, left_fit, right_fit, midpoint):
     # Define conversions in x and y from pixels space to meters
     ym_per_pix = 30/720 # meters per pixel in y dimension
     xm_per_pix = 3.7/700 # meters per pixel in x dimension
@@ -204,10 +196,13 @@ def process_image(image):
     vehicle_position = "right"
     if(lane_centre >= midpoint):
         vehicle_position = "left"
+    
+    return curvature, vehicle_position, vehicle_offset
 
-    """
-    Unwarp the detected lanes back to the original image and plot
-    """
+"""
+Unwarp the detected lanes back to the original image and plot
+"""
+def unwarp_image(undist, warped, ploty, left_fitx, right_fitx, Minv, img_size=(1280,720)):
     # Create an image to draw the lines on
     warp_zero = np.zeros_like(warped).astype(np.uint8)
     color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
@@ -225,6 +220,38 @@ def process_image(image):
     # Combine the result with the original image
     result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
 
+    return result
+
+
+"""
+This function is the main processing pipeline for each frame
+"""
+def process_image(image):
+    # Convert to RGB to make life easier
+    img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Get image size
+    img_size = (image.shape[1], image.shape[0])
+
+    # Undistort the image using the calculated dist coefficients and camera matrix
+    undist = cv2.undistort(img_rgb, mtx, dist, None, mtx)
+
+    # Create the binary image
+    combined_binary = create_binary_image(undist)
+    
+    # Perspective transform
+    warped, M, Minv = perspective_transform(combined_binary, img_size)
+
+    # Detect lane pixels
+    ploty, left_fitx, right_fitx, left_fit, right_fit, midpoint \
+        = detect_lane_pixels(warped, img_size=img_size)
+
+    curvature, vehicle_position, vehicle_offset \
+        = find_curvature_and_offset(ploty, left_fitx, right_fitx, left_fit, right_fit, midpoint)
+
+    # Unwarp the image and plot the detected lanes
+    result = unwarp_image(undist, warped, ploty, left_fitx, right_fitx, Minv, img_size=img_size)
+    
     # Overlay the text on the final image
     # Radius of curvature
     cv2.putText(result,
@@ -248,28 +275,34 @@ def process_image(image):
     
     return cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
 
-# Run the pipeline on the project video and save it
-filename = "project_video.mp4"
-video_output = "output_" + filename
-clip = VideoFileClip(filename)
-processed_clip = clip.fl_image(process_image)
-processed_clip.write_videofile(video_output, audio=False)
+if __name__ == '__main__':
+    """
+    Load camera calibration data
+    """
+    # Load the camera matrix and dist coefficients from dist_pickle
+    # These values were calculated in camera_calibration.py
+    pickle_data = pickle.load(open("dist_pickle.p", "rb"))
+    mtx = pickle_data["mtx"]
+    dist = pickle_data["dist"]
 
-# Apply the pipeline on a test image and visualise
-# filename = "test1.jpg"
-# img = cv2.imread("test_images/" + filename)
-# output_image = process_image(img)
-# plt.imshow(output_image)
-# plt.show()
+    # Create left and right lane Line objects
+    left_line = Line()
+    right_line = Line()
+    
+    # Run the pipeline on the project video and save it
+    filename = "project_video.mp4"
+    video_output = "output_" + filename
+    clip = VideoFileClip(filename)
+    # processed_clip = clip.fl_image(process_image)
+    # processed_clip.write_videofile(video_output, audio=False)
 
-# Uncomment this to save the file to the output_images folder
-# cv2.imwrite("output_images/output_"+filename, cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
+    # Apply the pipeline on a test image and visualise
+    filename = "test1.jpg"
+    img = cv2.imread("test_images/" + filename)
+    output_image = process_image(img)
+    plt.imshow(cv2.cvtColor(output_image, cv2.COLOR_BGR2RGB))
+    plt.show()
+    # Save the file to the output_images folder
+    # cv2.imwrite("output_images/output_"+filename, cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
 
-# Plotting for debugging purposes
-# f, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(20,10))
-# ax1.set_title('Original image')
-# ax1.imshow(img_rgb, cmap = 'gray')
-# ax2.set_title('Final Result')
-# ax2.imshow(result, cmap = 'gray')
-# plt.tight_layout()
-# plt.show()
+
