@@ -248,10 +248,6 @@ def search_around_poly(warped, left_fit, right_fit, out_img, img_size=(1280,720)
     # ax2.plot(right_fitx, ploty, color='yellow')
     # ax2.imshow(search_area, cmap = 'gray')
 
-    ax1.imshow(warped, cmap='gray')
-    ax1.set_title('Warped Image', fontsize=30)
-    ax2.set_title('Output', fontsize=30)
-
     ## End visualization steps ##
     
     return leftx, lefty, rightx, righty
@@ -354,6 +350,8 @@ def process_image(image):
     # Convert to RGB to make life easier
     img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
+    ax1.imshow(img_rgb)
+
     # Get image size
     img_size = (image.shape[1], image.shape[0])
 
@@ -402,9 +400,7 @@ def process_image(image):
 
 
 if __name__ == '__main__':
-
-    f, (ax1,ax2) = plt.subplots(1,2)
-
+    f, (ax1, ax2) = plt.subplots(1,2)
     # Load the camera matrix and dist coefficients from dist_pickle
     # These values were calculated in camera_calibration.py
     pickle_data = pickle.load(open("dist_pickle.p", "rb"))
@@ -423,25 +419,12 @@ if __name__ == '__main__':
     # processed_clip.write_videofile(video_output, audio=False)
 
     image = cv2.imread("test_images/test1.jpg")
+    output = process_image(image)
 
-    # Convert to RGB to make life easier
-    img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # Get image size
-    img_size = (image.shape[1], image.shape[0])
-
-    # Undistort the image using the calculated dist coefficients and camera matrix
-    undist = cv2.undistort(img_rgb, mtx, dist, None, mtx)
-
-    # Create the binary image
-    combined_binary = create_binary_image(undist)
-    
-    # Perspective transform
-    warped, M, Minv = perspective_transform(combined_binary, img_size)
-
-    # Detect lane pixels
-    left_fitx, right_fitx, left_fit, right_fit \
-        = detect_lane_pixels(warped, img_size=img_size)
+    ax1.set_title("Original Image", fontsize=30)
+    ax2.set_title("Output Image", fontsize=30)
+    ax2.imshow(cv2.cvtColor(output, cv2.COLOR_BGR2RGB))
 
     plt.tight_layout()
     plt.show()

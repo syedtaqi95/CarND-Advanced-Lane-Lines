@@ -26,6 +26,7 @@ The project is broken down into the following steps:
 [warped]: ./output_images/warped.jpg "warped"
 [sliding_window]: ./output_images/sliding_window.jpg "sliding_window"
 [search_around_poly]: ./output_images/search_around_poly.jpg "search_around_poly"
+[final_output]: ./output_images/final_output.jpg "final_output"
 
 ---
 
@@ -56,6 +57,8 @@ I computed the camera matrix and distortion coefficients using OpenCV's `cv2.cal
 I saved the camera matrix and distortion coefficients in `dist_pickle.p` so that I can quickly load it in my main pipeline file.
 
 ### **Pipeline (test images)**
+
+The pipeline is wrapped in a function called `process_image()` (line 349).
 
 #### 1. Provide an example of a distortion-corrected image.
 
@@ -116,8 +119,57 @@ Alternatively, if there was already a polynomial fit from a previous frame, I us
 
 ![search_around_poly]
 
-Once I found the useful activated pixels through either of the two methods, I used the `fit_polynomial()` function to fit a second order polynomial. This uses the `np.polyfit()` function to generate n-order polynomial coefficients given a set of points. You can see the polynomial as a yellow line in the previous image.
+Once I found the useful activated pixels through either of the two methods, I used the `fit_polynomial()` function to fit a second order polynomial. This uses the `np.polyfit()` function to generate second order polynomial coefficients given a set of points. You can see the polynomial as a yellow line in the previous image.
 
+The final bit of this step is the `sanity_check()` function. While I tried a number of different sanity check implementations, the one I used in the end was very simple and provided a good result on the test images and the project video. It simply checks the lane width at the top and bottom of the warped image, and if the difference between the two is larger than 50 pixels, the sanity check fails. If the sanity check fails, I simply discard the detected polynomial and use the previous  polynomial in `line.currentfit`. If it passes, I save the new polynomial to the `Line()` objects.
 
+#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+
+This step uses the `find_curvature_and_offset()` function (line 287).
+
+I defined a conversion from pixel space to the real-world world (in metres) as below:
+
+```python
+ym_per_pix = 30/720 # meters per pixel in y dimension
+xm_per_pix = 3.7/700 # meters per pixel in x dimension
+```
+
+For the curvature calculation, I simply used the bottom of the image as the chosen y-value. The calculation of the left and right radii is given by:
+
+```python
+left_curverad = (1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5 / np.absolute(2*left_fit_cr[0])
+right_curverad = (1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5 / np.absolute(2*right_fit_cr[0])
+```
+The output radius is a mean of the left and right radii:
+
+```python
+curvature = round(np.mean([left_curverad, right_curverad]), 0)
+```
+
+I calculated the vehicle offset and position using the bottom of the image as my chosen reference point. As we assumed the camera is mounted in the centre of the vehicle, the offset is the difference between the centre of the detected lanes and the midpoint of the image. The vehicle position (i.e. left or right of the lane center) was calculated similarly - if the lane centre is to the right of the midpoint, the vehicle is to the left, and vice versa. Again, the values used were converted from pixels to metres.
+
+#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+
+The code for this is part of the `process_image()` function (lines 378-397).
+
+I simply used OpenCV's `cv2.putText()` function to overlay the curvature and vehicle position information on each frame. This is my final output:
+
+![final_output]
+
+### **Pipeline (video)**
+
+#### 1. Provide a link to your final video output. Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!)
+
+My project video output is called *output_project_video.mp4*.
+
+<figure class="video_container">
+  <video controls="true" allowfullscreen="true">
+    <source src="output_project_video.mp4" type="video/mp4">
+  </video>
+</figure>
+
+### Discussion
+
+#### 1. Briefly discuss any problems / issues you faced in your implementation of this project. Where will your pipeline likely fail? What could you do to make it more robust?
 
 
