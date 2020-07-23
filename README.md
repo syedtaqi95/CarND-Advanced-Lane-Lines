@@ -77,7 +77,7 @@ s_thresh_min = 170
 s_thresh_max = 255
 ```
 
-I also converted the undistorted image to grayscale applied the Sobel operator in the x direction using the `cv2.Sobel()` function. Combining the two yielded the following output:
+I also converted the undistorted image to grayscale and applied the Sobel operator in the x direction using the `cv2.Sobel()` function. Combining the two yielded the following output:
 
 ![combined_binary]
 
@@ -160,16 +160,28 @@ I simply used OpenCV's `cv2.putText()` function to overlay the curvature and veh
 
 #### 1. Provide a link to your final video output. Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!)
 
-My project video output is called *output_project_video.mp4*.
-
-<figure class="video_container">
-  <video controls="true" allowfullscreen="true">
-    <source src="output_project_video.mp4" type="video/mp4">
-  </video>
-</figure>
+My project video output is called *output_project_video.mp4* in the project repositary and has been uploaded to Youtube [here](https://youtu.be/fX5k2I6cmdY).
 
 ### Discussion
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project. Where will your pipeline likely fail? What could you do to make it more robust?
 
+The main issues I faced while doing this project were:
+- Tuning the parameters for each step took a lot of trial and error. Moreover, what worked for the test images did not always work for the project video, and vice versa.
+- Initially I had all my code as a monolithic block of code. Splitting it out into individual functions helped me speed up unit testing.
+- Getting the sanity check to work reliably was an issue for me. It kept failing at different points in the video until my final strategy, which is quite simple actually.
+
+My pipeline will likely fail in the following scenarios:
+- When the first frame does not generate a 'good' polynomial. This is in frames where the histogram peaks do not correspond to the lanes.
+- When there is an obstacle on the lane in front of the ego vehicle.
+- In conditions where either one or both of the lane markings are not visible very well, such as dark lighting conditions.
+
+If I were to continue working on this project, I would make the following improvements:
+- Change the `src` and `dst` warping points from static pixel positions to dynamic, i.e. based on the width and height of the video. This would allow me to process a video of any frame size.
+- Employ a more complex strategy to estimate the lane curvature, rather than just use the bottom of the image as my reference point. Something like calculating the mean value of the curvature at multiple points would provide a more accurate value.
+- Detect left and right lanes separately. Currently if one lane detection fails, both detections are rejected. Detections would improve if I detected each lane separately.
+- Not sure if this will provide any improvements, but I think using the full image for the histogram (rather than just the bottom half) might improve detections, as we are simply throwing away half the image.
+- Apply smoothing to reduce jitter.
+
+In conclusion, I found this project very interesting as it built on the knowledge of the previous project and allowed me to see my algorithm improve iteratively. It also taught me a lot of new computer vision techniques which will be invaluable knowledge for working on self-driving cars!
 

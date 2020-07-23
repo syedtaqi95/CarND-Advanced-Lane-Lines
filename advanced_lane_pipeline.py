@@ -350,8 +350,6 @@ def process_image(image):
     # Convert to RGB to make life easier
     img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    ax1.imshow(img_rgb)
-
     # Get image size
     img_size = (image.shape[1], image.shape[0])
 
@@ -400,7 +398,6 @@ def process_image(image):
 
 
 if __name__ == '__main__':
-    f, (ax1, ax2) = plt.subplots(1,2)
     # Load the camera matrix and dist coefficients from dist_pickle
     # These values were calculated in camera_calibration.py
     pickle_data = pickle.load(open("dist_pickle.p", "rb"))
@@ -415,19 +412,8 @@ if __name__ == '__main__':
     filename = "project_video.mp4"
     video_output = "output_" + filename
     clip = VideoFileClip(filename)
-    # processed_clip = clip.fl_image(process_image)
-    # processed_clip.write_videofile(video_output, audio=False)
-
-    image = cv2.imread("test_images/test1.jpg")
-    output = process_image(image)
-
-
-    ax1.set_title("Original Image", fontsize=30)
-    ax2.set_title("Output Image", fontsize=30)
-    ax2.imshow(cv2.cvtColor(output, cv2.COLOR_BGR2RGB))
-
-    plt.tight_layout()
-    plt.show()
+    processed_clip = clip.fl_image(process_image)
+    processed_clip.write_videofile(video_output, audio=False)
 
     # OPTIONAL - Apply the pipeline on the test images and save them
     # test_images = os.listdir("test_images")
