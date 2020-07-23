@@ -87,7 +87,7 @@ def detect_lane_pixels(warped, img_size=(1280,720),):
     # Fit the polynomials
     left_fitx, right_fitx, ploty, left_fit, right_fit = \
         fit_polynomial(img_size, leftx, lefty, rightx, righty)
-    
+
     # Sanity check - only save the values if they make sense
     # Save anyway if it's the first frame
     if (sanity_check(left_fitx, right_fitx) == True)  | (left_line.first_frame == True):
@@ -248,6 +248,10 @@ def search_around_poly(warped, left_fit, right_fit, out_img, img_size=(1280,720)
     # ax2.plot(right_fitx, ploty, color='yellow')
     # ax2.imshow(search_area, cmap = 'gray')
 
+    ax1.imshow(warped, cmap='gray')
+    ax1.set_title('Warped Image', fontsize=30)
+    ax2.set_title('Output', fontsize=30)
+
     ## End visualization steps ##
     
     return leftx, lefty, rightx, righty
@@ -366,6 +370,7 @@ def process_image(image):
     left_fitx, right_fitx, left_fit, right_fit \
         = detect_lane_pixels(warped, img_size=img_size)
 
+    # Find the curvature and vehicle offset
     curvature, vehicle_position, vehicle_offset \
         = find_curvature_and_offset(left_fitx, right_fitx, left_fit, right_fit)
 
@@ -414,8 +419,32 @@ if __name__ == '__main__':
     filename = "project_video.mp4"
     video_output = "output_" + filename
     clip = VideoFileClip(filename)
-    processed_clip = clip.fl_image(process_image)
-    processed_clip.write_videofile(video_output, audio=False)
+    # processed_clip = clip.fl_image(process_image)
+    # processed_clip.write_videofile(video_output, audio=False)
+
+    image = cv2.imread("test_images/test1.jpg")
+
+    # Convert to RGB to make life easier
+    img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Get image size
+    img_size = (image.shape[1], image.shape[0])
+
+    # Undistort the image using the calculated dist coefficients and camera matrix
+    undist = cv2.undistort(img_rgb, mtx, dist, None, mtx)
+
+    # Create the binary image
+    combined_binary = create_binary_image(undist)
+    
+    # Perspective transform
+    warped, M, Minv = perspective_transform(combined_binary, img_size)
+
+    # Detect lane pixels
+    left_fitx, right_fitx, left_fit, right_fit \
+        = detect_lane_pixels(warped, img_size=img_size)
+
+    plt.tight_layout()
+    plt.show()
 
     # OPTIONAL - Apply the pipeline on the test images and save them
     # test_images = os.listdir("test_images")
